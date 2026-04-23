@@ -2,7 +2,6 @@
 
 clear
 
-# ASCII Banner
 echo " __  .__                         "
 echo "_/  |_|  |__   ____  __ __  ____ "
 echo "\   __\  |  \_/ __ \|  |  \/ ___\\"
@@ -14,94 +13,70 @@ echo "🚀 QUIP NODE BY THEUGULTIMATUM"
 echo "======================================"
 echo ""
 
+# --- Detect WSL ---
+if grep -qi microsoft /proc/version; then
+  echo "⚠️ Running inside WSL"
+fi
+
 # --- Root check ---
 if [ "$EUID" -ne 0 ]; then
-  echo "❌ Please run as root: sudo bash install.sh"
+  echo "❌ Run as root: sudo bash"
   exit 1
 fi
 
-# --- OS check ---
-if ! command -v apt &> /dev/null; then
-  echo "❌ Only Ubuntu/Debian supported"
-  exit 1
-fi
-
-# --- Update system ---
-echo "🔄 Updating system..."
+# --- Update ---
 apt update -y && apt upgrade -y
 
-# --- Install dependencies ---
-echo "📦 Installing dependencies..."
+# --- Install deps ---
 apt install -y curl wget ca-certificates
 
-# --- Docker check/install ---
-if command -v docker &> /dev/null; then
-    echo "✅ Docker already installed"
-    if ! systemctl is-active --quiet docker; then
-        echo "⚠️ Starting Docker..."
-        systemctl start docker
-        systemctl enable docker
-    fi
-else
-    echo "🐳 Installing Docker..."
-    apt install -y docker.io
-    systemctl enable docker
-    systemctl start docker
-
-    if ! command -v docker &> /dev/null; then
-        echo "❌ Docker install failed"
-        exit 1
-    fi
+# --- Install Docker if missing ---
+if ! command -v docker &> /dev/null; then
+  echo "🐳 Installing Docker..."
+  apt install -y docker.io
 fi
 
-# --- Firewall setup BEFORE node ---
-if command -v ufw &> /dev/null; then
-    echo "🔓 Configuring firewall..."
-    ufw allow 20049/tcp
-    ufw allow 20049/udp
-    ufw reload
-else
-    echo "ℹ️ UFW not found, skipping firewall"
+# --- Docker (WSL safe) ---
+if command -v systemctl &> /dev/null; then
+  systemctl start docker 2>/dev/null || true
+  systemctl enable docker 2>/dev/null || true
 fi
 
-# --- Directory setup ---
-echo "📁 Creating data directory..."
+# --- INPUT FIX ---
+echo ""
+echo "👉 Enter details (or pass via env)"
+
+if [ -z "$NODE_NAME" ]; then
+  read -p "Node Name: " NODE_NAME
+fi
+
+if [ -z "$WALLET_ADDRESS" ]; then
+  read -p "Wallet Address: " WALLET_ADDRESS
+fi
+
+# --- VALIDATION ---
+if [ -z "$NODE_NAME" ] || [ -z "$WALLET_ADDRESS" ]; then
+  echo "❌ Missing input!"
+  echo "👉 Use this instead:"
+  echo ""
+  echo "NODE_NAME=yourname WALLET_ADDRESS=0xyourwallet bash install.sh"
+  exit 1
+fi
+
+FULL_NAME="${NODE_NAME}-${WALLET_ADDRESS}"
+
+echo "✅ Node Identity: $FULL_NAME"
+
+# --- Setup dir ---
 mkdir -p ~/quip-data
 
-# --- User input ---
-echo ""
-read -p "👉 Enter your Node Name: " NODENAME
-read -p "👉 Enter your Wallet Address (EVM): " WALLET
+# --- Remove old ---
+docker rm -f quip-node 2>/dev/null
 
-if [ -z "$NODENAME" ] || [ -z "$WALLET" ]; then
-    echo "❌ Node name or wallet cannot be empty"
-    exit 1
-fi
-
-FULL_NAME="${NODENAME}-${WALLET}"
-
-echo ""
-echo "✅ Node Identity: $FULL_NAME"
-echo ""
-
-# --- Remove old container ---
-if docker ps -a --format '{{.Names}}' | grep -Eq "^quip-node$"; then
-    echo "🧹 Removing old container..."
-    docker rm -f quip-node
-fi
-
-# --- Pull latest image ---
-echo "📥 Pulling latest image..."
+# --- Pull ---
 docker pull registry.gitlab.com/quip.network/quip-protocol/quip-network-node-cpu:latest
 
-if [ $? -ne 0 ]; then
-    echo "❌ Image pull failed"
-    exit 1
-fi
-
-# --- Run node ---
-echo "🚀 Starting node..."
-
+# --- Run ---
 docker run -d --name quip-node \
 -p 20049:20049/udp \
 -p 20049:20049/tcp \
@@ -110,13 +85,7 @@ docker run -d --name quip-node \
 --restart unless-stopped \
 registry.gitlab.com/quip.network/quip-protocol/quip-network-node-cpu:latest
 
-if [ $? -ne 0 ]; then
-    echo "❌ Failed to start node"
-    exit 1
-fi
-
-# --- Show logs ---
-sleep 3
 echo ""
-echo "📊 Node Logs (CTRL+C to exit):"
+echo "✅ Node started!"
+echo "📊 Logs:"
 docker logs -f quip-node
