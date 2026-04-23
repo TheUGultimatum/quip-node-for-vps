@@ -9,7 +9,9 @@ Run a Quip node on your VPS in **one command** — fully automated setup (Docker
 ## ⚡ One-Line Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TheUGultimatum/quip-node-for-vps/main/install.sh | sudo bash
+curl -O https://raw.githubusercontent.com/TheUGultimatum/quip-node-for-vps/main/install.sh
+chmod +x install.sh
+sudo ./install.sh
 ```
 
 ---
