@@ -33,13 +33,20 @@ sudo ./install.sh
 
 ## 📌 Requirements
 
-* Ubuntu / Debian VPS
-* Root or sudo access
-* Minimum:
+## ✅ Recommended Setup
 
-  * 2 CPU
-  * 4GB RAM
-  * Stable internet
+Best performance and stability:
+
+- VPS (Ubuntu 22.04 / 24.04)
+- Minimum:
+  - 4 CPU
+  - 8GB RAM
+- Open port: 20049 (TCP + UDP)
+
+⚠️ Avoid:
+- Mobile hotspot
+- CGNAT networks
+- WSL without Docker Desktop
 
 ---
 
